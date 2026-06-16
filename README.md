@@ -306,3 +306,7 @@ Paper available in [Nature Structural & Molecular Biology](https://www.nature.co
 	doi = {10.1038/s41594-025-01713-3}
 }
 ```
+
+## 套用 ACF & MGCM
+方法為 基於自適應分群之Cryo_EM_蛋白質原子定位框架改良所提出，詳見 [ACF & MGCM GitHub](https://github.com/bjtjili1028/ACF_MGCM.git)，執行方式同上方介紹，僅需至 ``config/arguments.yml`` 中修改參數即可。
+<!-- [基於自適應分群之Cryo_EM_蛋白質原子定位框架改良所提出](https://doi.org/10.1038/s41597-024-03299-9)， -->
