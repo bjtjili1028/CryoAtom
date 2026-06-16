@@ -19,6 +19,7 @@ from CryoAtom.utils.fasta_utils import is_valid_fasta_ending
 from CryoAtom.utils.misc_utils import filter_useless_warnings, Args
 from CryoAtom.utils.hmmer_search import hmmer_search
 import time
+import random
 
 def filter_chains(input_pdb_file, output_pdb_file, bfactor_threshold=50):
     if input_pdb_file.split(".")[-1][:3] == "pdb":
@@ -127,12 +128,57 @@ def add_args(parser):
         "--config-path", "-c", "--c", help="Provide an additional parameter file path. It is recommended to have a detailed understanding of this software before using this parameter, otherwise use the default parameter values.", type=str,
     )
 
+    # --- NMS 聚類參數（可選，搭配 -s/--sequence-path 使用）---
+    additional_args.add_argument(
+        "--use-nms",
+        action="store_true",
+        default=False,
+        help="啟用自適應 NMS 聚類（取代 Stage1 的原始 kd-tree 剪枝）",
+    )
+    additional_args.add_argument(
+        "--coverage-factor",
+        type=float,
+        default=1.0,
+        help="目標原子數覆蓋倍率（搭配 --use-nms 使用，預設 1.0）",
+    )
+    additional_args.add_argument(
+        "--ca-mult",
+        type=float,
+        default=1.0,
+        help="CA 自適應閾值乘數（預設 1.0，調大則閾值升高、點更少）",
+    )
+    additional_args.add_argument(
+        "--nms-radius",
+        type=float,
+        default=1.5,
+        help="NMS 初始抑制半徑（Å），預設 1.5",
+    )
+
     return parser
 
 @torch.no_grad()
 def main(parsed_args):
     start_time = time.time()
     filter_useless_warnings()
+
+    # ======== 固定隨機種子 ========
+    # 在執行 CryoAtom 時，發現其因中間層設計存在隨機性
+    # （目的是用隨機初始化提升模型的泛化能力），
+    # 故每次產出之結果產生些微差異，會影響後續在執行過程中的重現和比較，
+    # 因此將會固定其隨機性部分。
+    # 這可能會導致其錯過最佳解，但可以確保我們的比較存在公正性。
+    # 涵蓋的隨機來源：
+    #   1. 隨機初始旋轉：讓模型不受初始朝向的影響（init_random_affine_from_translation）
+    #   2. 隨機 residue 處理順序（argmin_random 中的 torch.randperm）
+    _SEED = 2026
+    random.seed(_SEED)
+    np.random.seed(_SEED)
+    torch.manual_seed(_SEED)
+    torch.cuda.manual_seed_all(_SEED)
+    torch.backends.cudnn.deterministic = True   # 強制 CUDA 使用確定性算法
+    torch.backends.cudnn.benchmark = False      # 關閉自動選擇最快算法（可能為非確定性）
+    os.environ["PYTHONHASHSEED"] = str(_SEED)
+    # ================================
 
     parsed_args.device = torch.device(parsed_args.device)
     if parsed_args.config_path:
@@ -177,8 +223,19 @@ def main(parsed_args):
         UNet_args.output_path = os.path.join(parsed_args.output_dir, "see_alpha_output")
         UNet_args.device = parsed_args.device
         UNet_args.mask_path = parsed_args.mask_path
+
+        # --- 傳遞 NMS 聚類參數給 UNet Stage1 ---
+        # --use-nms 旗標決定是否啟用 NMS 聚類（與 fasta 是否存在無關）
+        UNet_args.fasta_path      = parsed_args.sequence_path  # NMS 需要 fasta 估算目標原子數
+        UNet_args.use_nms         = getattr(parsed_args, 'use_nms', False)
+        UNet_args.coverage_factor = getattr(parsed_args, 'coverage_factor', 1.5)
+        UNet_args.ca_mult         = getattr(parsed_args, 'ca_mult', 1.0)
+        UNet_args.nms_radius      = getattr(parsed_args, 'nms_radius', 1.5)
+        # -------------------------------------------------
+        
         config["CryNet_args"]["is_refine"] = False
         ca_cif_path = UNet_infer(UNet_args)
+
 
 
     current_ca_cif_path = ca_cif_path

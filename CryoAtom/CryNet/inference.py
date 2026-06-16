@@ -210,6 +210,21 @@ def infer(args):
     module = CryFolder(1280,256,num_layers_former=18,num_layers_ipa=7,attention_heads=8)
     module.load_state_dict(state_dict)
     module.to(device)
+
+    # ==================== 🛠️ 新增：計算模型參數量 ====================
+    total_params = sum(p.numel() for p in module.parameters())
+    trainable_params = sum(p.numel() for p in module.parameters() if p.requires_grad)
+    
+    # 自動換算成百萬 (M) 方便閱讀
+    m_params = total_params / 1e6
+    
+    print("\n" + "="*40)
+    print(f"🧬 [CryFolder 模型參數統計]")
+    print(f"  ├─ 總參數數量 (Total): {total_params:,} ({m_params:.2f} M)")
+    print(f"  └─ 可訓練參數 (Trainable): {trainable_params:,}")
+    print("="*40 + "\n")
+    # ================================================================
+    
     module.eval()
     protein = None
     if args.struct.endswith("cif") or args.struct.endswith("pdb"):
