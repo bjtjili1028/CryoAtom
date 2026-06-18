@@ -307,6 +307,10 @@ Paper available in [Nature Structural & Molecular Biology](https://www.nature.co
 }
 ```
 
-## 套用 ACF & MGCM
-方法為 基於自適應分群之Cryo_EM_蛋白質原子定位框架改良所提出，詳見 [ACF & MGCM GitHub](https://github.com/bjtjili1028/ACF_MGCM.git)，執行方式同上方介紹，僅需至 ``config/arguments.yml`` 中修改參數即可。
+## 套用 ACF 
+方法為 基於自適應分群之Cryo_EM_蛋白質原子定位框架改良所提出，詳見 [ACF & MGCM GitHub](https://github.com/bjtjili1028/ACF_MGCM.git)，安裝方式同上方介紹，執行亦同上，若未不開啟自適應分群，則使用原始方法，若開啟請同下方加上 ``--use-nms``，並加上下列超參數設定數值``--coverage-factor --ca-mult  --nms-radius``，請參閱下方參考程式碼。
+
+```
+cryoatom build -s protein.fasta -v map.mrc -o output --keep-intermediate-results --use-nms --coverage-factor 1.0 --ca-mult 1.0 --nms-radius 1.6
+```
 <!-- [基於自適應分群之Cryo_EM_蛋白質原子定位框架改良所提出](https://doi.org/10.1038/s41597-024-03299-9)， -->
